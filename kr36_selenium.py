@@ -8,6 +8,7 @@ from selenium import webdriver
 import hashlib
 from lxml import etree
 import os
+import csv
 
 class Crawler:
     """docstring for Crawler"""
@@ -80,10 +81,10 @@ class Crawler:
     def write_csv(self,data):
         path = '36Kr_news.csv'
         # with open(path,'a+') as f:
-        with open(path,'a+',encoding='utf-8') as f:
-        # NOTE: 由于atom和excel采用编码形式不同，在aton中乱码，在excel中是完整的encoding='utf-8'
-            p = csv.writer(f)
-            p.writerow(data)
+        with open(path, 'a+',encoding='utf-8',errors='ignore') as f:  # Just use 'w' mode in 3.x
+            w = csv.DictWriter(f, data.keys())
+            # w.writeheader()
+            w.writerow(data)
 
     def clean_text(self,text):
         # NOTE: 完全清除所有的符号，只保留中文
@@ -104,17 +105,14 @@ class Crawler:
 
     def getEssay(self,url):
         item={}
-        item['files']=[]
         item['spider_name']=self.name
         item['file_urls']=[]
         item['source_url'] = url
         item['img_info'] = []
-        item['img_path'] =[]
         contentlist = list()
         text = requests.get(url).text
         html = etree.HTML(text)
         content_body = html.xpath(".//div[@class='common-width content articleDetailContent kr-rich-text-wrapper']/*")  
-        print(content_body)
         img_items = html.xpath(".//div[@class='common-width content articleDetailContent kr-rich-text-wrapper']//img")
         for img in img_items:
             src = img.xpath("./@src")[0]
@@ -124,10 +122,8 @@ class Crawler:
                 item['img_info'].append({"id":img_id,"path":img_path,"url":src})
                 item['file_urls'].append(src)
                 self.download_img(src,img_path)
-        print(item['img_info'])
-        print(item['file_urls'])
         #标题
-        item['title']=html.xpath(".//h1/text()")
+        item['title']=html.xpath(".//h1/text()")[0]
         #内容
         item['content']=''
         img_num=0
@@ -138,11 +134,12 @@ class Crawler:
                 img_num += 1
             else:
                 item['content'] +="".join(i.xpath(".//text()"))
-        print(item['content'])
+        # item['content'] = self.clean_text(item['content'])
         #时间
         timestamp = int(re.findall('"publishTime":(\d+)',text)[0])
         time_local = time.localtime(timestamp/1000)
         pub_time = time.strftime("%Y-%m-%d %H:%M:%S", time_local)
+        return item
 
     def get_md5_value(self,src):
         my_md5 = hashlib.md5()
@@ -151,14 +148,36 @@ class Crawler:
         return my_md5_Digest
 
     def download_img(self,src,path):
+        folder_path = self.path + '\\'.join(path.split('/')[0:-1])
         try:
             pic = requests.get(src, timeout=10)
+            try:
+                #保存图片路径
+                if os.path.exists(folder_path) == False:
+                    os.makedirs(folder_path)
+                fp = open(self.path + path.replace('/','\\'), 'wb')
+                fp.write(pic.content)
+                fp.close()
+            except OSError:#文件名、目录名或卷标语法不正确
+                pass
         except requests.exceptions.ConnectionError:
             print('图片无法下载')
-        #保存图片路径
-        fp = open(self.path + path, 'wb')
-        fp.write(pic.content)
-        fp.close()
+        except:
+            pass
+
+    def mkdir_multi(self,path):
+        # 判断路径是否存在
+        isExists=os.path.exists(path)
+        if not isExists:
+            # 如果不存在，则创建目录（多层）
+            os.makedirs(path) 
+            print('目录创建成功！')
+            return True
+        else:
+            # 如果目录存在则不创建，并提示目录已存在
+            print('目录已存在！')
+            return False
+
 
 if __name__ == "__main__":
     socket.setdefaulttimeout(25)
@@ -172,11 +191,12 @@ if __name__ == "__main__":
         print(userset)
         for user in userset:
             user_url = domain + user
-            print(user_url)
             username,linkset = crawler.getPage(user_url)
-            print(username,linkset)
+            print(username)
             for link in linkset:
                 essay_url = domain + link
-                crawler.getEssay(essay_url)
+                data = crawler.getEssay(essay_url)
+                print(data)
+                # crawler.write_csv(data)
     except socket.timeout:
         print('获取连接超时！')
