@@ -16,10 +16,10 @@ class Crawler:
         self.path = os.path.abspath('.')
         self.name = '36kr'
         self.browser = webdriver.Firefox()
-         # option = webdriver.FirefoxOptions()
-        # option.add_argument('headless')
+        option = webdriver.FirefoxOptions()
+        option.add_argument('--headless')
         # drivepath = r'D:\Software\Python 3.6.8\Lib\site-packages\selenium\chromedriver.exe'
-        # self.browser = webdriver.Firefox(executable_path=drivepath,chrome_options = option)
+        self.browser = webdriver.Firefox(options = option)
         self.browser.get(url)
 
     def getUser(self,url):
@@ -79,8 +79,7 @@ class Crawler:
         return username,linkset
 
     def write_csv(self,data):
-        path = '36Kr_news.csv'
-        # with open(path,'a+') as f:
+        path = '36kr.csv'
         with open(path, 'a+',encoding='utf-8',errors='ignore') as f:  # Just use 'w' mode in 3.x
             w = csv.DictWriter(f, data.keys())
             # w.writeheader()
@@ -103,9 +102,10 @@ class Crawler:
             fw.write(str(element))
             fw.write('\r\n')
 
-    def getEssay(self,url):
+    def getEssay(self,url,user):
         item={}
-        item['spider_name']=self.name
+        item['user_name'] = user
+        # item['spider_name']=self.name
         item['file_urls']=[]
         item['source_url'] = url
         item['img_info'] = []
@@ -117,7 +117,7 @@ class Crawler:
         for img in img_items:
             src = img.xpath("./@src")[0]
             if src:
-                img_path='/'+item['spider_name']+'/' + '/'.join(src.split("/")[3:])   # 图片存储路径保留原网站路径
+                img_path='/36kr/' + '/'.join(src.split("/")[3:])   # 图片存储路径保留原网站路径
                 img_id=self.get_md5_value(src)
                 item['img_info'].append({"id":img_id,"path":img_path,"url":src})
                 item['file_urls'].append(src)
@@ -139,6 +139,7 @@ class Crawler:
         timestamp = int(re.findall('"publishTime":(\d+)',text)[0])
         time_local = time.localtime(timestamp/1000)
         pub_time = time.strftime("%Y-%m-%d %H:%M:%S", time_local)
+        item['pub_time'] = pub_time
         return item
 
     def get_md5_value(self,src):
@@ -148,14 +149,16 @@ class Crawler:
         return my_md5_Digest
 
     def download_img(self,src,path):
-        folder_path = self.path + '\\'.join(path.split('/')[0:-1])
+        folder_path = self.path + '/'.join(path.split('/')[0:-1])
+        print(folder_path)
         try:
             pic = requests.get(src, timeout=10)
             try:
                 #保存图片路径
                 if os.path.exists(folder_path) == False:
                     os.makedirs(folder_path)
-                fp = open(self.path + path.replace('/','\\'), 'wb')
+                print(self.path + path)    
+                fp = open(self.path + path, 'wb')
                 fp.write(pic.content)
                 fp.close()
             except OSError:#文件名、目录名或卷标语法不正确
@@ -188,15 +191,30 @@ if __name__ == "__main__":
     try:
         crawler = Crawler(target)
         userset = crawler.getUser(target)
-        print(userset)
-        for user in userset:
+        
+        userlist = list(userset)
+        count_user = len(userlist)
+        print(count_user)
+        if count_user >= 20 :
+            userlist = userlist[0:20]
+        else:
+            pass
+        for user in userlist:
             user_url = domain + user
             username,linkset = crawler.getPage(user_url)
             print(username)
+            count_eassy = 0
             for link in linkset:
                 essay_url = domain + link
-                data = crawler.getEssay(essay_url)
-                print(data)
-                # crawler.write_csv(data)
+                try:
+                    data = crawler.getEssay(essay_url,username)
+                    print(data)
+                    crawler.write_csv(data)
+                    count_eassy += 1
+                except Exception as e:
+                    print(e)
+                if count_eassy > 50:
+                    break
+        crawler.browser.close()
     except socket.timeout:
         print('获取连接超时！')
