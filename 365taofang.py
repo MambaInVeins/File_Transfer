@@ -14,18 +14,18 @@ class beike:
 
 
     def conn_sqlite3(self):
-        self.conn = sqlite3.connect('beike_nj.db')
+        self.conn = sqlite3.connect('nj_rent_house365.db')
         print("Opened database successfully")
         self.cursor = self.conn.cursor()
 
     def create_table(self):
         # 名称 价格 位置 大小 朝向 户型 楼层 标签 品牌 维护时间 房源链接 入住 电梯 车位 用水 用电 燃气 采暖 租期 看房 配套设置 联系人 联系方式
-        sql = 'CREATE TABLE zufang(id integer PRIMARY KEY autoincrement, name varchar(30), price integer ,location varchar(30),area varchar(30),orientations varchar(30),layout varchar(30),storey varchar(30),label varchar(30),brand varchar(30),time varchar(30),houseurl varchar(50),check_in varchar(30),elevator varchar(30),parking varchar(30),water varchar(30),electric varchar(30),gas varchar(30),heat varchar(30),rant_term varchar(30),house_watch varchar(30),support varchar(30),contact varchar(30),phone varchar(30))'
+        sql = 'CREATE TABLE house(id integer PRIMARY KEY autoincrement, name varchar(30), price integer ,location varchar(30),area varchar(30),orientations varchar(30),layout varchar(30),storey varchar(30),label varchar(30),brand varchar(30),time varchar(30),houseurl varchar(50),check_in varchar(30),elevator varchar(30),parking varchar(30),water varchar(30),electric varchar(30),gas varchar(30),heat varchar(30),rant_term varchar(30),house_watch varchar(30),support varchar(30),contact varchar(30),phone varchar(30))'
         self.cursor.execute(sql)
         self.conn.commit()
 
     def insert_data(self,data):
-        sql = 'INSERT INTO zufang(name, price,location,area,orientations,layout,storey,label,brand,time,houseurl,check_in,elevator,parking,water,electric,gas,heat,rant_term,house_watch,support,contact,phone) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+        sql = 'INSERT INTO house(name, price,location,area,orientations,layout,storey,label,brand,time,houseurl,check_in,elevator,parking,water,electric,gas,heat,rant_term,house_watch,support,contact,phone) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
         self.cursor.execute(sql, data)
     
     def commit_data(self):
@@ -57,44 +57,39 @@ class beike:
                 characteristic = ' '.join(characteristic)
             except:
                 characteristic = ''
-            print(characteristic)
             house_info=[title,house_url,subway_tips,characteristic]
-            detail = self.crawl_detail(house_url)
-            house_info += detail
             print(house_info)
+            try:
+                detail = self.crawl_detail(house_url)
+            except:
+                detail = []
+            house_info += detail
+            
             # self.insert_data(house_info)
             # self.commit_data()
-            # time.sleep(30)
+            time.sleep(1)
         
 
     def crawl_detail(self,url):
-        response = requests.get(url).text
-        # house_codes=url.split('/')[-1].replace('.html','')
+        detail = []
+        response = requests.get(url,stream=True).text
         soup = BeautifulSoup(response, "lxml")
-        info_li = soup.find('div',id="info",class_="content__article__info").find_all('li')
-        info = []
-        # 入住5 电梯8 车位10 用水11 用电13 燃气14 采暖16 租期18 看房21
-        for item in info_li:
-            item = item.get_text()
-            info.append(item)
-        detail = [info[5].replace('入住：',''),info[8].replace('电梯：',''),info[10].replace('车位：',''),info[11].replace('用水：',''),info[13].replace('用电：',''),info[14].replace('燃气：',''),info[16].replace('采暖：',''),info[18].replace('租期：',''),info[21].replace('看房：','')]
-        
-        info2_li = soup.find('ul',class_="content__article__info2").find_all('li',class_="fl oneline")
-        info2 = []
-        for item in info2_li[1:]:
-            item = item.get_text().strip('\n\t\r ')
-            info2.append(item)
-        fl = ' '.join(info2)
-        detail.append(fl)
-        contact_name = soup.find('span',class_="contact_name").get_text()
-        contact_phone = soup.find('p',id="phone1").get_text()
-        if contact_phone=='免费电话咨询':
-            contact_url = 'https://nj.zu.ke.com/aj/house/brokers?house_codes='+house_codes
-            response = requests.get(contact_url).text
-            tp_number = re.findall('"tp_number":"(.*?),(.*?)"',response)[0]
-            contact_phone = tp_number[0]+' 转 '+tp_number[1]
-        detail.append(contact_name)
-        detail.append(contact_phone)
+        price = soup.find('span',class_="z-price").get_text()
+        payment = soup.find('div',class_="z-price-detail").find_all('span')[-1].get_text()    
+        house_detail = soup.find('div',class_="z-house--details z-cl").find_all('div',class_="z-fl")
+        rent = house_detail[0].find('p').get_text()
+        layout = house_detail[1].find('p').get_text()
+        area = house_detail[2].find('p').get_text()
+        orientations = house_detail[3].find('p').get_text()
+        storey = house_detail[4].find('p').get_text().replace(' ','')
+        decoration = house_detail[5].find('p').get_text()
+        house_area = re.compile('\s').sub('',soup.find('div',class_="z-house-area").get_text().replace('区域',''))
+        quarters = soup.find('div',class_="z-quarters").find('a').get_text()
+        master_name = soup.find('div',class_="z-house-master-name").get_text().strip('\n\t\r ')
+        master_phone = soup.find('div',class_="z-fl z-check-phone").get('data-phone')
+        support = re.compile('\s+').sub(' ',soup.find('div',class_="z-cl z-facilities z-specific-info-block").get_text()).strip(' ')
+        description = soup.find('div',class_="z-cl z-specific-info-block z-txt-decuration").get_text().strip('\n\t\r ')
+        detail = [price,payment,rent,layout,area,orientations,storey,decoration,house_area,quarters,master_name,master_phone,support,description]
         return detail
 
 
