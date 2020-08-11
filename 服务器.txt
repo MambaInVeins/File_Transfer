@@ -1,7 +1,3 @@
-服务器地址 ：   ihome.qicp.vip 180.102.44.216
- ssh 端口号    ：322
-root  yuezhu008
-
 ssh -p 322 root@ihome.qicp.vip
 
 sftp -P 322 root@ihome.qicp.vip
