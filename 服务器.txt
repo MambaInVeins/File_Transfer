@@ -1,3 +1,6 @@
 ssh -p 322 root@ihome.qicp.vip
 
 sftp -P 322 root@ihome.qicp.vip
+
+
+zhangjuyong@ihomek.com 184545
