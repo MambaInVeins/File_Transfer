@@ -50,7 +50,6 @@ def extract_frame(video_path):
         pass
     else:
         os.mkdir(image_path) 
-    print(image_path)
     
     while success :
         i = i + 1
@@ -60,50 +59,9 @@ def extract_frame(video_path):
             pass
         success, frame = videoCapture.read()
 
-
-# 识别水印位置
-def identify_watermark_location(image):
-    src = cv2.imread(image)
-    cv2.namedWindow("input", cv2.WINDOW_AUTOSIZE)
-    cv2.imshow("input", src)
-    """
-    提取图中的红色部分
-    """
-    hsv = cv2.cvtColor(src, cv2.COLOR_BGR2HSV)
-    low_hsv = np.array([0,43,46])
-    high_hsv = np.array([10,255,255])
-    mask = cv2.inRange(hsv,lowerb=low_hsv,upperb=high_hsv)
-    cv2.imshow("test",mask)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-# 通过点击获取这个点的像素色彩信息，也就是RGB值
-def pic_bgr(image):
-    img = cv2.imread(image)
-
-    def click_info(event, x, y, flags, param):
-        # 只处理双击事件
-        if event == cv2.EVENT_LBUTTONDBLCLK:
-            print('坐标', x, y)
-            b, g, r = img[y, x]     # 获取b, g, r
-            print("像素点的bgr值", b, g, r)
-
-    cv2.namedWindow('image')
-    cv2.setMouseCallback('image',  click_info)
-
-    while True:
-        cv2.imshow("image", img)
-        # 点击 esc键
-        if cv2.waitKey(20) & 0xFF ==27:
-            break
-
-    cv2.destroyAllWindows()
-
-
-# frame_list = [[960, 544], [1280, 720], [404, 720], [600, 450], [408, 720], [640, 480], [1268, 720]]
 # 根据视频大小裁剪
 def classify_video_size(frame_width,frame_height):
-    print(frame_width,frame_height)
+    # print(frame_width,frame_height)
     if [frame_width,frame_height]==[960,544]:
         # 205,50
         x1,y1,x2,y2 = 0,50,frame_width,frame_height
@@ -138,7 +96,9 @@ def pic_to_video(image_path,video_name,fps,frame_width,frame_height):
             img_list.append(file)  #获取目录下文件名列表
     img_list.sort(key=lambda i: int(re.match(r'(\d+)', i).group()))
 
-    video=cv2.VideoWriter('video/{}.avi'.format(video_name),cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'),fps,(frame_width,frame_height))  #定义保存视频目录名称及压缩格式，fps=10,像素为1280*720
+    # video=cv2.VideoWriter('video/{}.avi'.format(video_name),cv2.VideoWriter_fourcc('X', 'V', 'I', 'D'),fps,(frame_width,frame_height))  #定义保存视频目录名称及压缩格式，fps=10,像素为1280*720
+    video=cv2.VideoWriter('video/{}-yz.mp4'.format(video_name),cv2.VideoWriter_fourcc(*'mp4v'),fps,(frame_width,frame_height))  #定义保存视频目录名称及压缩格式，fps=10,像素为1280*720
+    # video=cv2.VideoWriter('video/{}-yz.mp4'.format(video_name),-1,fps,(frame_width,frame_height))  #定义保存视频目录名称及压缩格式，fps=10,像素为1280*720
     x1,y1,x2,y2 = classify_video_size(frame_width,frame_height)
     for i in range(1,len(img_list)+1):
         img = Image.open(image_path+img_list[i-1]) # 打开当前路径图像
@@ -151,7 +111,7 @@ def pic_to_video(image_path,video_name,fps,frame_width,frame_height):
 
     video.release()
 
-
+# 递归删除目录下文件和文件夹
 def del_file(rootdir):
     filelist=os.listdir(rootdir)                #列出该目录下的所有文件名
     for f in filelist:
@@ -168,23 +128,28 @@ def fangtianxia_video_watermark_remove():
     dirs = os.listdir('video')                 # 获取指定路径下的文件
     for i in dirs:                             # 循环读取路径下的文件并筛选输出
         if os.path.splitext(i)[1] == ".mp4":   # 筛选mp4文件
-            video_list.append(i)
-            nbFrames,fps,duration,frame_height,frame_width = get_video_frame('video/'+i)
-            if [frame_width,frame_height] not in frame_list:
-                frame_list.append([frame_width,frame_height])
-                print('video/'+i,frame_width,frame_height)
-            print('video/'+i,frame_width,frame_height)
-            img_path = ('video/'+i).replace('.mp4','')+'/'
             video_name = i.replace('.mp4','')
-            if os.path.exists(img_path):
-                pass
+            data ='video/{}.flv'.format(video_name)
+            is_exist = qiniu_is_exist(data)
+            if is_exist==True:
+                return False
             else:
-                extract_frame('video/'+i)
-            pic_to_video(img_path,video_name,fps,frame_width,frame_height)
-            data ='video/{}.avi'.format(video_name)
-            print(data)
-            qiniu_upload_file('video/{}.avi'.format(video_name))
+                video_list.append(i)
+                nbFrames,fps,duration,frame_height,frame_width = get_video_frame('video/'+i)
+                if [frame_width,frame_height] not in frame_list:
+                    frame_list.append([frame_width,frame_height])
+                    print('video/'+i,frame_width,frame_height)
+                # print('video/'+i,frame_width,frame_height)
+                img_path = ('video/'+i).replace('.mp4','')+'/'
+                if os.path.exists(img_path):
+                    pass
+                else:
+                    extract_frame('video/'+i)
+                pic_to_video(img_path,video_name,fps,frame_width,frame_height)
+                flag = qiniu_upload_file(data)
+                print(flag)
     del_file('video')
+    return flag,data
 
 
 
@@ -197,7 +162,7 @@ def download_video():
     # 得到一个可以执行SQL语句的光标对象
     cursor = conn.cursor()
     # 定义要执行的SQL语句
-    sql = """select rental_title,url,videourl from rental_house limit 10;"""
+    sql = """select rental_title,url,videourl from rental_house limit 100;"""
     # 执行SQL语句
     cursor.execute(sql)
     houses = cursor.fetchall()
@@ -211,12 +176,40 @@ def download_video():
             video = requests.get(videourl).content
             with open('video/'+video_name,'wb') as video_file:
                 video_file.write(video)
-                fangtianxia_video_watermark_remove()
+                flag,key = fangtianxia_video_watermark_remove()
+                print(flag,key)
+                if flag:
+                    sql = """update rental_house set videourl ='{}' where url='{}'  """.format(''+key,url)
+                    print(sql)
+                    # cursor.execute(sql)
             continue
     # 关闭光标对象
     cursor.close()
     # 关闭数据库连接
     conn.close()
+
+def qiniu_is_exist(data):
+    # 七牛的配置信息
+    access_key = 'qeg4bbEkVHLA5eAttv7L5HBeTQ5MtMBzaiU-LcI1'
+    secret_key = 'Nvcak_xnLn2S1Z4UuXnwkZiAgqPSUUW5PucbYte9'
+    # 空间名
+    bucket_name = 'huka'
+
+    q = Auth(access_key, secret_key)
+
+    # 定义文件的key
+    pwd = os.getcwd()
+    key = data
+
+    # 判断七牛key是否已经存在
+    buc = BucketManager(q)
+    res, info1 = buc.stat(bucket_name, key)
+    if(res != None):
+        # exit(res.text)
+        return True
+    else:
+        return False
+
 
 def qiniu_upload_file(data):
     """
@@ -236,17 +229,12 @@ def qiniu_upload_file(data):
     pwd = os.getcwd()
     key = data
 
-    # 判断七牛key是否已经存在
-    buc = BucketManager(q)
-    res, info1 = buc.stat(bucket_name, key)
-    if(res != None):
-        exit(res.text)
 
     # 上传文件的地址
     localfile  = pwd+'/'+data
     if(os.path.exists(localfile) == False):
-        exit('文件不存在')
-
+        print('文件不存在')
+        return False
     # 获取上传的token
     token = q.upload_token(bucket_name, key, 36000000)
 
@@ -254,11 +242,69 @@ def qiniu_upload_file(data):
     ret, info = put_file(token, key, localfile)
     if(ret == None):
         # 上传失败
-        exit(res.text)
-    exit('上传成功')
+        print(res.text)
+        return False
+    print('{} 上传成功'.format(data))
+    return True
 
+def video_watermark_remove(video):
+    video = video.split('/')[-1]
+    video_name = video.replace('.mp4','')
+    data ='video/{}-yz.mp4'.format(video_name)
+    nbFrames,fps,duration,frame_height,frame_width = get_video_frame('video/'+video)
+    if [frame_width,frame_height] not in frame_list:
+        frame_list.append([frame_width,frame_height])
+        print('video/'+video,frame_width,frame_height)
+    # print('video/'+video,frame_width,frame_height)
+    img_path = 'video/'+video_name+'/'
+    if os.path.exists(img_path):
+        pass
+    else:
+        extract_frame('video/'+video)
+    pic_to_video(img_path,video_name,fps,frame_width,frame_height)
+    return data
+
+
+def main():
+    conn = pymysql.connect(host='ihome.qicp.vip', user="root",password="yuezhu008",database="yuezhu",charset="utf8",port=33336)
+    cursor = conn.cursor()
+    sql = "select rental_title,url,videourl from rental_house where videourl != '';"
+    cursor.execute(sql)
+    houses = cursor.fetchall()
+    for house in houses:
+        print(house)
+        rental_title = house[0]
+        url = house[1]
+        videourl = house[2]
+        if videourl.startswith('https://cdn.zhu6.com'):
+            pass
+        else:
+            video_name = videourl.split('/')[-1]
+            video = requests.get(videourl).content
+            with open('video/'+video_name,'wb') as video_file:
+                video_file.write(video)
+            data ='video/{}-yz.mp4'.format(video_name.replace('.mp4',''))
+            is_exist = qiniu_is_exist(data)
+            if is_exist==True:
+                print('已在云端')
+            else:
+                data = video_watermark_remove('video/'+video_name)
+                qiniu_upload_file(data)
+                videourl_update = 'https://cdn.zhu6.com'+'/'+data
+                sql = """update rental_house set videourl ='{}' where url='{}';""".format(videourl_update,url)
+                print(videourl_update,sql)
+                cursor.execute(sql)
+                conn.commit()
+        del_file('video')
+    cursor.close()
+    conn.close()
+                
 
 if __name__=='__main__':
-    download_video()
+    # download_video()
 
     # qiniu_upload_file('/video/mda-kgqqviqpcwigp50p.avi')
+    # a = qiniu_is_exist('video/mda-kgqqviqpcwi1213gp50p.flv')
+    # print(a)
+    del_file('video')
+    main()
