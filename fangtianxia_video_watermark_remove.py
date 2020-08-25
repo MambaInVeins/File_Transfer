@@ -15,7 +15,7 @@ import jsonpath
 import time
 
 
-frame_list = [[960, 544], [1280, 720], [404, 720], [600, 450], [408, 720], [640, 480], [1268, 720]]
+frame_list = [[960, 544], [1280, 720], [404, 720], [600, 450], [408, 720], [640, 480], [1268, 720],[720,544]]
 
 # 从本地读取一段视频，并获取帧数，帧率以及时长 
 def get_video_frame(video_path):
@@ -83,6 +83,9 @@ def classify_video_size(frame_width,frame_height):
     elif [frame_width,frame_height]==[1268, 720]:
         # 270,85
         x1,y1,x2,y2 = 0,85,frame_width,frame_height
+    elif [frame_width,frame_height]==[720, 544]:
+        # 147,45
+        x1,y1,x2,y2 = 0,45,frame_width,frame_height
     else:
         pass
     return x1,y1,x2,y2
@@ -123,71 +126,6 @@ def del_file(rootdir):
             shutil.rmtree(filepath,True)        #若为文件夹，则删除该文件夹及文件夹内所有文件
             print("dir "+str(filepath)+" removed!")
 
-def fangtianxia_video_watermark_remove():
-    video_list= []
-    dirs = os.listdir('video')                 # 获取指定路径下的文件
-    for i in dirs:                             # 循环读取路径下的文件并筛选输出
-        if os.path.splitext(i)[1] == ".mp4":   # 筛选mp4文件
-            video_name = i.replace('.mp4','')
-            data ='video/{}.flv'.format(video_name)
-            is_exist = qiniu_is_exist(data)
-            if is_exist==True:
-                return False
-            else:
-                video_list.append(i)
-                nbFrames,fps,duration,frame_height,frame_width = get_video_frame('video/'+i)
-                if [frame_width,frame_height] not in frame_list:
-                    frame_list.append([frame_width,frame_height])
-                    print('video/'+i,frame_width,frame_height)
-                # print('video/'+i,frame_width,frame_height)
-                img_path = ('video/'+i).replace('.mp4','')+'/'
-                if os.path.exists(img_path):
-                    pass
-                else:
-                    extract_frame('video/'+i)
-                pic_to_video(img_path,video_name,fps,frame_width,frame_height)
-                flag = qiniu_upload_file(data)
-                print(flag)
-    del_file('video')
-    return flag,data
-
-
-
-
-
-def download_video():
-    # 连接database
-    # ihome.qicp.vip 121.237.225.225
-    conn = pymysql.connect(host='ihome.qicp.vip', user="root",password="yuezhu008",database="yuezhu",charset="utf8",port=33336)
-    # 得到一个可以执行SQL语句的光标对象
-    cursor = conn.cursor()
-    # 定义要执行的SQL语句
-    sql = """select rental_title,url,videourl from rental_house limit 100;"""
-    # 执行SQL语句
-    cursor.execute(sql)
-    houses = cursor.fetchall()
-    for house in houses:
-        print(house)
-        rental_title = house[0]
-        url = house[1]
-        videourl = house[2]
-        if videourl!='':
-            video_name = videourl.split('/')[-1]
-            video = requests.get(videourl).content
-            with open('video/'+video_name,'wb') as video_file:
-                video_file.write(video)
-                flag,key = fangtianxia_video_watermark_remove()
-                print(flag,key)
-                if flag:
-                    sql = """update rental_house set videourl ='{}' where url='{}'  """.format(''+key,url)
-                    print(sql)
-                    # cursor.execute(sql)
-            continue
-    # 关闭光标对象
-    cursor.close()
-    # 关闭数据库连接
-    conn.close()
-
 def qiniu_is_exist(data):
     # 七牛的配置信息
     access_key = 'qeg4bbEkVHLA5eAttv7L5HBeTQ5MtMBzaiU-LcI1'
@@ -209,7 +147,6 @@ def qiniu_is_exist(data):
         return True
     else:
         return False
-
 
 def qiniu_upload_file(data):
     """
@@ -255,13 +192,13 @@ def video_watermark_remove(video):
     if [frame_width,frame_height] not in frame_list:
         frame_list.append([frame_width,frame_height])
         print('video/'+video,frame_width,frame_height)
-    # print('video/'+video,frame_width,frame_height)
-    img_path = 'video/'+video_name+'/'
-    if os.path.exists(img_path):
-        pass
     else:
-        extract_frame('video/'+video)
-    pic_to_video(img_path,video_name,fps,frame_width,frame_height)
+        img_path = 'video/'+video_name+'/'
+        if os.path.exists(img_path):
+            pass
+        else:
+            extract_frame('video/'+video)
+        pic_to_video(img_path,video_name,fps,frame_width,frame_height)
     return data
 
 
@@ -273,28 +210,31 @@ def main():
     houses = cursor.fetchall()
     for house in houses:
         print(house)
-        rental_title = house[0]
-        url = house[1]
-        videourl = house[2]
-        if videourl.startswith('https://cdn.zhu6.com'):
-            pass
-        else:
-            video_name = videourl.split('/')[-1]
-            video = requests.get(videourl).content
-            with open('video/'+video_name,'wb') as video_file:
-                video_file.write(video)
-            data ='video/{}-yz.mp4'.format(video_name.replace('.mp4',''))
-            is_exist = qiniu_is_exist(data)
-            if is_exist==True:
-                print('已在云端')
+        try:
+            rental_title = house[0]
+            url = house[1]
+            videourl = house[2]
+            if videourl.startswith('https://cdn.zhu6.com'):
+                pass
             else:
-                data = video_watermark_remove('video/'+video_name)
-                qiniu_upload_file(data)
-                videourl_update = 'https://cdn.zhu6.com'+'/'+data
-                sql = """update rental_house set videourl ='{}' where url='{}';""".format(videourl_update,url)
-                print(videourl_update,sql)
-                cursor.execute(sql)
-                conn.commit()
+                video_name = videourl.split('/')[-1]
+                video = requests.get(videourl).content
+                with open('video/'+video_name,'wb') as video_file:
+                    video_file.write(video)
+                data ='video/{}-yz.mp4'.format(video_name.replace('.mp4',''))
+                is_exist = qiniu_is_exist(data)
+                if is_exist==True:
+                    print('已在云端')
+                else:
+                    data = video_watermark_remove('video/'+video_name)
+                    qiniu_upload_file(data)
+                    videourl_update = 'https://cdn.zhu6.com'+'/'+data
+                    sql = """update rental_house set videourl ='{}' where url='{}';""".format(videourl_update,url)
+                    print(videourl_update,sql)
+                    cursor.execute(sql)
+                    conn.commit()
+        except Exception as e:
+            print(e)
         del_file('video')
     cursor.close()
     conn.close()
