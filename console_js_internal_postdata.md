@@ -30,7 +30,7 @@
 
     第一个参数"function()"是定时器触发时要执行的动作，可以是一个函数，也可以是几个函数，函数间用";"隔开即可。比如要弹出两个警告窗口，便可将"function();"换成"alert('第一个警告窗口!');alert('第二个警告窗口!');"；而第二个参数“delaytime”则是间隔的时间，以毫秒为单位，即填写“5000”，就表示5秒钟。
 
-采坑记录
+踩坑记录
 
     报 "SyntaxError: await is only valid in async function"
 
