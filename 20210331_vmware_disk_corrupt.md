@@ -1,4 +1,4 @@
-vmware虚拟机 
+vmware虚拟机磁盘崩溃
 
 “磁盘xxx.vmdk”出现一个或多个无法修复的内部错误。请通过该磁盘的备份副本进行恢复。
 指定的虚拟磁盘需要进行修复
@@ -37,6 +37,7 @@ https://serverfault.com/questions/993860/how-to-repaire-a-vmdk-that-is-is-corrup
     Use StarWind to convert it from a local vmdk to a local vmdk. It will flatten all your "*.vmdk" files into a single file
     Create a new virtual machine and select to "use an existing virtual disk" and point it to the fixed version.
 
-下载工具StarWind V2V Converter
+下载工具StarWind V2V Converter,没用明白。。。
 
-    
+最后还是还原了之前的快照。。。虽然丢失了一定的进度，但万幸没全丢，所以保存快照很重要阿！！！
+
