@@ -1,14 +1,15 @@
+# 文件上传漏洞
+
+## 练习平台 upload-labs
+
 https://github.com/c0ny1/upload-labs
 
-参考
+## 参考链接
 
 https://blog.csdn.net/weixin_44426869/article/details/104236854#t3
 https://xz.aliyun.com/t/2435
 https://www.cnblogs.com/Lmg66/p/13272575.html?utm_source=tuicool
 https://blog.csdn.net/weixin_44677409/article/details/92799366#t17
-
-
-文件上传漏洞练习
 
 ![](https://lmg66.github.io/img/3.png)
 
@@ -931,7 +932,7 @@ save_name=shell.php/.这样file_ext值为空绕过黑名单，而move_uploaded_f
 
 ![](https://lmg66.github.io/img/67.png)
 
-## Pass-20
+## Pass-20 数组绕过
 
 源码
 
@@ -1016,3 +1017,21 @@ $array=([0]->'shell' [2]->'php' [3]->'jpg')
 绕过姿势：
 
 ![](https://raw.githubusercontent.com/MambaInVeins/ImageHosting/master/img/Screenshot%20from%202021-05-21%2001-56-52.png)
+
+
+## 部分相关函数说明
+
+    $_FILES['file']['name'] //客户端上传的文件原名称，含扩展名
+    $_FILES['file']['type'] //上传的文件类型
+    $_FILES['file']['tmp_name'] //文件上传后，在服务器端存储的临时文件名
+    stripos(string $haystack,string $needle [,int $offset = 0])// 查找字符串首次出现的位置（不区分大小写）
+    strrpos(string $haystack,string $needle [,int $offset = 0])//计算指定字符串在目标字符串中最后一次出现的位置
+    move_uploaded_file(string $filename,string $destination) //文件上传后先存储于服务器的临时目录中，使用该函数移动文件位置
+    substr(string $string,int $start [,int $length]) //返回字符串string中从位置start处后的长度为length部分
+    strrchr(string $haystack,mixed $needle) //返回haystack字符串中的一部分，这部分以needle的最后出现位置开始，直到haystack末尾
+    in_array(mixed $needle,array $haystack[,bool $strict = FALSE])//在数组haystack中搜索是否存在值needle，strict若设置TRUE，则类型也会匹配
+
+
+## Web渗透之文件上传漏洞总结
+
+https://www.secpulse.com/archives/95987.html
