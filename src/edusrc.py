@@ -83,6 +83,29 @@ class Edusrc(object):
             for school in school_list:
                 f.write(school+'\n')
 
+    def dumpVulnList(self):
+        url = self.baseurl + "/rank/firm/"
+        res = req.get(url)
+        soup = BeautifulSoup(res.text,'html.parser')
+        maxPage = int(soup.find('ul',class_='am-pagination').find_all('li')[-2].get_text())
+        pagelist = [_ for _ in range(1,maxPage+1)]
+        for i in pagelist:
+            url = self.baseurl + "/rank/firm/?page=%d" % i
+            res = req.get(url)
+            soup = BeautifulSoup(res.text,'html.parser')
+            schools = soup.find_all('tr',class_='row')
+            school_list = []
+            for school in schools:
+                school_id = school.find('a').get('href').split('/')[-1]
+                school_name = school.find('a').get_text()
+                school_vuln_number = school.find_all('td')[2].get_text()
+                school_vuln_value = school.find_all('td')[3].get_text()
+                # print(school_id,school_name,school_vuln_number,school_vuln_value)
+                school_list.append(school_name)
+            with open("schools.txt", "a+") as f:
+                for school in school_list:
+                    f.write(school+'\n')
+
 def baidu_edu_url():
     schools = open('school_list.txt','r').readlines()
     url = 'https://www.baidu.com/s?wd=' 
