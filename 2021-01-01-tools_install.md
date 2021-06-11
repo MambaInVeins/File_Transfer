@@ -69,7 +69,19 @@ pikachu靶场，并且将其映射到13002端口上
     docker pull area39/pikachu:latest
     docker run -d -p 13002:80 area39/pikachu:latest
 
-[docker安装uploads-lad并定时刷新环境](https://blog.csdn.net/qq_19309473/article/details/107202812)
+sqli-labs靶场，并且将其映射到13003端口上
+
+    docker pull acgpiano/sqli-labs 
+    docker run -d -p 13003:80 -p acgpiano/sqli-labs 
+
+
+17个靶机环境 https://github.com/c0ny1/vulstudy.git
+
+[使用docker快速搭建多个渗透测试靶机环境](https://blog.csdn.net/limb0/article/details/105795879)
+
+[docker安装upload-labs并定时刷新环境](https://www.cnblogs.com/Cl0ud/p/13943187.html)
 
 [docker安装dvwa](https://blog.csdn.net/qq_19309473/article/details/107202812)
 
+[docker安装sqli-labs](https://blog.csdn.net/qq_40612211/article/details/104382611)
+[解决Linux Docker sqli-labs中无法连接security数据库](https://blog.csdn.net/Big_Study_Father/article/details/106052620)

